@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QWidget
 from PyQt5.QtWidgets import QToolBar, QMessageBox, QFileDialog 
 from PyQt5.QtWidgets import QDesktopWidget, QSplitter
-from PyQt5.QtWidgets import QPlainTextEdit, QStatusBar
+from PyQt5.QtWidgets import QPlainTextEdit, QStatusBar 
 from PyQt5.QtWidgets import QApplication, QAction, QLabel, QActionGroup
 from PyQt5.QtGui import QFontDatabase, QIcon, QFont
 from PyQt5.QtCore import Qt
@@ -163,6 +163,13 @@ class MainWindow(QMainWindow):
         
         edit_menu.addSeparator()
 
+        comment_action = QAction("Comment/Uncomment", self)
+        comment_action.setShortcut('Ctrl+/')
+        comment_action.triggered.connect(self.comment)
+        edit_menu.addAction(comment_action)
+        
+        edit_menu.addSeparator()
+
         select_action = QAction("Select all", self)
         select_action.setShortcut('Ctrl+A')
         select_action.triggered.connect(self.editor.selectAll)
@@ -186,8 +193,7 @@ class MainWindow(QMainWindow):
         zoom_out_action.setShortcut('Ctrl+-')
         zoom_out_action.triggered.connect(self.editor.zoomOut)
         edit_menu.addAction(zoom_out_action)
-        
-        
+         
         config_menu = self.menuBar().addMenu("&Configure")
         
         verify_action = QAction("Verify", self)
@@ -214,6 +220,12 @@ class MainWindow(QMainWindow):
             IPGroup.addAction(self.ip_action[n])
         self.ip_action[0].setChecked(True)
         
+        # uploadvalidate_action = QAction("Upload and verify", self)
+        # uploadvalidate_action.setCheckable(True)
+        # uploadvalidate_action.setChecked(False)
+        # # uploadvalidate_action.triggered.connect(self.edit_toggle_upload)
+        # config_menu.addAction(uploadvalidate_action)
+             
         about_menu = self.menuBar().addMenu("&About")
         
         about_action = QAction("About SoundBlocks Configurator...", self)
@@ -373,6 +385,7 @@ class MainWindow(QMainWindow):
                 break
 
     def verify(self):
+        self.file_save()
         self.console.clear()
         self.console.insertPlainText('Parsing...\n')
         error = False
@@ -386,8 +399,8 @@ class MainWindow(QMainWindow):
             self.printerror('Error: empty file.')
             return error, send, receive, keylist 
         
-        sens = ['t1','t2','t3','t4','t5','t6','t7','t8','ax','ay','az','gx','gy','gz','azimuth','bearing']
-        acts = ['dfPlay', 'dfStop', 'dfSetEq', 'dfVolume', 'dfPlayFolder', 'dfPause']
+        sens = ['t1','t2','t3','t4','t5','t6','t7','ax','ay','az','gx','gy','gz','yaw','pitch','roll']
+        acts = ['dfPlay', 'dfPause', 'dfStop', 'dfResume', 'dfSetEq', 'dfVolume', 'dfPlayStop', 'dfPlayPause', 'dfPlayTouch']
 
         # Parse
 
@@ -409,6 +422,7 @@ class MainWindow(QMainWindow):
             if (re.search("->", line)):
                 
                 result = re.search("^(\\d{1,3})->(.*):(.*)$", line)
+                # print(result)
                 if not result:
                     error = True
                     self.printerror('Error: Send ID must be a number. In line ' + str(n+1) + ' "' + line + '"')
@@ -458,19 +472,31 @@ class MainWindow(QMainWindow):
                     out = id_out[i].split("-")
                     if len(out) == 1:
                         if not str.isdigit(out[0]):
-                                error = True
-                                self.printerror('Error: Receive ID must be a number. In line ' + str(n+1) + ' "' + line + '"')
-                                return error, send, receive, keylist
+                            error = True
+                            self.printerror('Error: Receive ID must be a number. In line ' + str(n+1) + ' "' + line + '"')
+                            return error, send, receive, keylist
+                        if int(out[0]) < 2 or int(out[0]) > 254:
+                            error = True
+                            self.printerror('Error: IP must be between 2-254. In line ' + str(n+1) + ' "' + line + '"')
+                            return error, send, receive, keylist
                         out1 = int(out[0])
                         out2 = out1
                     else:
-                       if (not str.isdigit(out[0]) or not str.isdigit(out[1])):
+                        if (not str.isdigit(out[0]) or not str.isdigit(out[1])):
                             error = True
                             self.printerror('Error: syntax error in line ' + str(n+1) + ' "' + line + '"')
                             return error, send, receive, keylist
-                            
-                       out1 = int(out[0])
-                       out2 = int(out[1])
+                        if int(out[0]) < 2 or int(out[0]) > 254:
+                            error = True
+                            self.printerror('Error: IP must be between 2-254. In line ' + str(n+1) + ' "' + line + '"')
+                            return error, send, receive, keylist
+                        if int(out[1]) < 2 or int(out[1]) > 254:
+                            error = True
+                            self.printerror('Error: IP must be between 2-254. In line ' + str(n+1) + ' "' + line + '"')
+                            return error, send, receive, keylist
+                        out1 = int(out[0])
+                        out2 = int(out[1])
+
                     listids[2*i] = out1
                     listids[2*i+1] = out2
                     
@@ -485,17 +511,22 @@ class MainWindow(QMainWindow):
                  
             if (re.search("<-", line)):
                 
-                result = re.search("^(\\d*)<-(.*):(\\d{1,3})@(.*)\\[(.*),(.*)\\]", line)
-                
-                if result is None or result.group(1) == '':
+                result = re.search("^(\\d{1,3})<-(.*):(\\d{1,3})@(.*?)(\\[(\\d+,)?(\\d+)\\])?(\\s*#.*)*$", line)
+                # print(result)
+                if not result or result == '':
                     error = True
                     self.printerror('Error: Receive ID must be a number. In line ' + str(n+1) + ' "' + line + '"')
                     return error, send, receive, keylist
+                if int(result.group(1)) < 2 or int(result.group(1)) > 254:
+                    error = True
+                    self.printerror('Error: Receive ID must be between 2-254. In line ' + str(n+1) + ' "' + line + '"')
+                    return error, send, receive, keylist
+                
                 id_in = int(result.group(1))
-
+                
                 if result.group(2) == '':
                     error = True
-                    self.printerror('Error: Send ID must be a number. In line ' + str(n+1) + ' "' + line + '"')
+                    self.printerror('Error: sensor must be valid. In line  ' + str(n+1) + ' "' + line + '"')
                     return error, send, receive, keylist
                 else:
                     sensor = result.group(2)
@@ -521,8 +552,25 @@ class MainWindow(QMainWindow):
                         self.printerror('Error: action must be valid. In line ' + str(n+1) + ' "' + line + '"')
                         return error, send, receive, keylist
 
-                map1 = result.group(5)
-                map2 = result.group(6)
+                if result.group(5):
+                    if result.group(6):
+                        map1 = result.group(6)[:-1]
+                        if int(map1)<0 or int(map1)>127:
+                            error = True
+                            self.printerror('Error: map value must be between 0-127. In line ' + str(n+1) + ' "' + line + '"')
+                            return error, send, receive, keylist
+                    else:
+                        map1 = 255
+                    map2 = result.group(7)
+                    if int(map2)<0 or int(map2)>127:
+                        error = True
+                        self.printerror('Error: map value must be between 0-127. In line ' + str(n+1) + ' "' + line + '"')
+                        return error, send, receive, keylist
+                else:
+                    map1 = 255
+                    map2 = 255
+                    
+                # print(map1,map2)
                 
                 listreceive = []
                 
@@ -566,15 +614,16 @@ class MainWindow(QMainWindow):
             self.console.insertPlainText('\n' + str(k) + ': ' + self.network + 
                                       str(k) + '\n')
             client = SimpleUDPClient(self.network + str(k), port)
-            client.send_message("/startprog", 0)
+            client.send_message("/initprog", 0)
             scrollbar = self.console.verticalScrollBar()
             scrollbar.setSliderPosition(scrollbar.maximum())
             sleep(0.5)
             app.processEvents()
 
             if (k in send):
+                self.console.insertPlainText('send: ' + str(send) + '\n')
                 for m in send[k]:
-                    self.console.insertPlainText('send: ' + str(send) + '\n')
+                    self.console.insertPlainText('send: ' + str(m) + '\n')
                     client.send_message("/send", m)
                     scrollbar = self.console.verticalScrollBar()
                     scrollbar.setSliderPosition(scrollbar.maximum())
@@ -582,8 +631,9 @@ class MainWindow(QMainWindow):
                     app.processEvents()  
 
             if (k in receive):
+                self.console.insertPlainText('receive: ' + str(receive) + '\n')
                 for m in receive[k]:
-                    self.console.insertPlainText('receive: ' + str(receive) + '\n')
+                    self.console.insertPlainText('receive: ' + str(m) + '\n')
                     client.send_message("/receive", m)
                     scrollbar = self.console.verticalScrollBar()
                     scrollbar.setSliderPosition(scrollbar.maximum())
@@ -614,6 +664,18 @@ class MainWindow(QMainWindow):
         msgBox.setWindowTitle("About SoundBlocks Configurator")
         msgBox.setText("SoundBlocks Configurator\n(C) 2024-2025\n\nSabrina García\nLaurence Bender\nGermán Ito\n")
         msgBox.exec()
+        
+    def comment(self):
+        cursor = self.editor.textCursor()
+        textSelected = cursor.selectedText()
+        lines = textSelected.splitlines(keepends=True)
+        linesout = ''
+        for line in lines:
+            if line[0] != '#':
+                linesout = linesout + '#'+ line
+            else:
+                linesout = linesout + line[1:]
+        cursor.insertText(linesout)
 
 # Main
 
