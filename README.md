@@ -1,3 +1,20 @@
+# SoundBlocks Configurator
+
+SoundBlocks Configurator is a cross-platform graphical application designed for configuring and managing interactive sound module systems. Its interface simplifies the assignment of behaviors and relationships between devices, allowing users to customize the logic of sound interaction without requiring programming skills.
+
+Key Features:
+- Communication Network Management: Supports both centralized and decentralized modes using OSC messages and custom protocols.
+
+- Sensor Configuration: Enables definition of the number and type of sensor responses.
+
+- Sound Function Assignment: Allows each module to be assigned specific sound functions, including synthesis parameters and audio playback.
+
+The software is built using open-source technologies and is available for Windows, macOS, and Linux. It is distributed free of charge and includes detailed documentation in both Spanish and English.
+
+Authors: Sabrina García, Laurence Bender, Germán Ito
+
+---
+
 # Reference SoundBlocks Configurator
 
 Each line of the configurator begins with the ID of the module to be configured. The next element in the line defines the module's behavior, indicating whether it will send or receive information.
